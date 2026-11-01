@@ -1,0 +1,42 @@
+name: Deploy ICAPACITY preview
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: cloudflare-icapacity-preview
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout website
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Check deployment secret
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CF_TOKEN" ]; then
+            echo "::error::Add CLOUDFLARE_API_TOKEN in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+      - name: Stage public website files only
+        run: |
+          mkdir -p "$RUNNER_TEMP/icapacity-site"
+          cp ./*.html ./styles.css ./site.js ./robots.txt ./_headers "$RUNNER_TEMP/icapacity-site/"
+          cp -R ./assets "$RUNNER_TEMP/icapacity-site/assets"
+          test -s "$RUNNER_TEMP/icapacity-site/index.html"
+          test -s "$RUNNER_TEMP/icapacity-site/assets/logo.png"
+          test -s "$RUNNER_TEMP/icapacity-site/assets/preview-illustration.svg"
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: f6ecde9069397c7fc555235a7d171881
+          wranglerVersion: "4.156.0"
+          command: pages deploy ${{ runner.temp }}/icapacity-site --project-name=icapacity-preview --branch=main
