@@ -29,7 +29,7 @@ export async function onRequest({request, env}) {
       body: JSON.stringify(body), redirect: 'error', signal: AbortSignal.timeout(10000)
     });
     const data = await response.json();
-    if (!response.ok || !data.ok) throw new Error('telegram_rejected');
+    if (!response.ok || !data.ok) throw Object.assign(new Error('telegram_rejected'), {method, code: response.status});
     return data.result;
   };
   try {
@@ -57,7 +57,7 @@ export async function onRequest({request, env}) {
     });
     return reply({ok: true, bot: bot.username, chat_id: chatId,
       group_title: chat.title, message_id: message.message_id});
-  } catch {
-    return reply({error: 'telegram_request_failed'}, 502);
+  } catch (error) {
+    return reply({error: 'telegram_' + (error.method || 'network') + '_' + (Number(error.code) || 0)}, 502);
   }
 }
