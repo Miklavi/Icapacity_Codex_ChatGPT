@@ -23,10 +23,12 @@ export async function onRequest({request, env}) {
   if (!token || !/^\d{6,}:[A-Za-z0-9_-]{20,}$/.test(token)) {
     return reply({error: 'bot_token_missing_or_invalid'}, 503);
   }
+  let activeMethod = 'none';
   const api = async (method, body = {}) => {
+    activeMethod = method;
     const response = await fetch('https://api.telegram.org/bot' + token + '/' + method, {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body), redirect: 'error', signal: AbortSignal.timeout(10000)
+      body: JSON.stringify(body), redirect: 'manual', signal: AbortSignal.timeout(10000)
     });
     const data = await response.json();
     if (!response.ok || !data.ok) throw Object.assign(new Error('telegram_rejected'), {method, code: response.status});
@@ -58,6 +60,6 @@ export async function onRequest({request, env}) {
     return reply({ok: true, bot: bot.username, chat_id: chatId,
       group_title: chat.title, message_id: message.message_id});
   } catch (error) {
-    return reply({error: 'telegram_' + (error.method || 'network') + '_' + (Number(error.code) || 0)}, 502);
+    return reply({error: 'telegram_' + (error.method || activeMethod) + '_' + (Number(error.code) || (['TypeError','SyntaxError','TimeoutError','AbortError'].includes(error.name) ? error.name : 'network'))}, 502);
   }
 }
